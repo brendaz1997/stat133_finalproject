@@ -1,0 +1,517 @@
+---
+title: "Yelp Me Pls"
+author: "Carmelia Muljadi, Madeline Wu, Brenda Zhang"
+date: "May 2, 2017"
+output: slidy_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r, include = FALSE}
+library(DataComputing)
+library(dplyr)
+library(ggthemes)
+library(readr)
+library(maps)
+```
+
+
+```{r, include = FALSE}
+#import and read csv files into R
+
+business <- read_csv("C:\\Users\\Brenda\\Documents\\UC Berkeley\\Sophomore\\Spring 2017\\STAT 133\\Final Project\\dataset-examples-master\\yelp_academic_dataset_business.csv")
+
+review <- read_csv("C:\\Users\\Brenda\\Documents\\UC Berkeley\\Sophomore\\Spring 2017\\STAT 133\\Final Project\\dataset-examples-master\\yelp_academic_dataset_review.csv")
+
+```
+
+Data Wrangling
+
+```{r, include = FALSE}
+# cleaning data to make business_clean and review_clean
+
+business_clean <- business %>%
+  select(business_id, city, stars, review_count, is_open, categories, latitude,longitude) %>% 
+  filter(is_open == 1) %>% # filtering out businesses that are no longer in business
+  select(business_id, city, stars, review_count, categories, latitude, longitude) %>% # selecting relevant columns
+  rename(avg_stars = stars) 
+  
+review_clean <- review %>%
+  select(business_id, date, stars) %>% # select relevant columns
+  rename(review_stars = stars)
+
+```
+
+
+```{r, include = FALSE}
+# Making separate business data tables for each of the 16 categories
+
+arts <- business_clean %>% filter(grepl("Arts & Entertainment", categories))
+nrow(arts)
+
+active <- business_clean %>% filter(grepl("Active Life", categories))
+nrow(active)
+
+food <- business_clean %>% filter(grepl("Food|Restaurants", categories))
+nrow(food)
+
+beauty <- business_clean %>% filter(grepl("Beauty & Spas", categories))
+nrow(beauty)
+
+edu <- business_clean %>% filter(grepl("Education", categories))
+nrow(edu)
+
+event <- business_clean %>% filter(grepl("Event Planning & Services", categories))
+nrow(event)
+
+fin <- business_clean %>% filter(grepl("Financial Planning & Services", categories))
+nrow(fin)
+
+health <- business_clean %>% filter(grepl("Health & Medical", categories))
+nrow(health)
+
+home <- business_clean %>% filter(grepl("Home Services", categories))
+nrow(home)
+
+hotel <- business_clean %>% filter(grepl("Hotels & Travel", categories))
+nrow(hotel)
+
+pets <- business_clean %>% filter(grepl("Pets", categories))
+nrow(pets)
+
+prof <- business_clean %>% filter(grepl("Professional Services", categories))
+nrow(prof)
+
+publicserv <- business_clean %>% filter(grepl("Public Services & Government", categories))
+nrow(publicserv)
+
+realestate <- business_clean %>% filter(grepl("Real Estate", categories))
+nrow(realestate)
+
+relig <- business_clean %>% filter(grepl("Religious Organizations", categories))
+nrow(relig)
+
+shopping <- business_clean %>% filter(grepl("Shopping", categories))
+nrow(shopping)
+
+# Creating a two column data table of categories and their number of associated businesses
+
+categ_count <- data.frame(
+  categories = c("Arts", "Active", "Food", "Beauty", "Education", "Events", "Finance", "Health", "Home", "Hotel", "Pets", "Professional", "Public Services", "Real Estate", "Religious", "Shopping"),
+  count = c(nrow(arts), nrow(active), nrow(food), nrow(beauty), nrow(edu), nrow(event), nrow(fin), nrow(health), nrow(home), nrow(hotel), nrow(pets), nrow(prof), nrow(publicserv), nrow(realestate), nrow(relig), nrow(shopping))
+)
+
+# Create a visualization that plots the count for each category
+categ_count_bar <- categ_count %>% ggplot(aes(x = categories,y = count)) + geom_col(aes(fill = categories)) + labs(title = "Number of Businesses in Each Category", x = "Categories", y="Number of Business") + theme(axis.text.x = element_text(angle = 90))
+
+categ_count_bar
+```
+
+
+```{r, include = FALSE}
+# Add an additional column with the category name for each table
+food1 <- food %>% mutate (categories = "Food")
+shopping1 <- shopping %>% mutate (categories = "Shopping")
+beauty1 <- beauty %>% mutate (categories = "Beauty")
+home1 <- home %>% mutate(categories = "Home")
+arts1 <- arts %>% mutate(categories = "Arts")
+active1 <- active %>% mutate(categories = "Active")
+edu1<- edu %>% mutate(categories = "Education")
+event1 <- event %>% mutate(categories = "Events")
+fin1 <- fin %>% mutate(categories = "Finance")
+health1 <- health %>% mutate(categories = "Health")
+hotel1 <- hotel %>% mutate(categories = "Hotel")
+pets1 <- pets %>% mutate(categories = "Pets")
+prof1 <- prof %>% mutate(categories = "Professional")
+publicserv1 <- publicserv %>% mutate(categories = "Public Services")
+realestate1 <- realestate %>% mutate(categories = "Real Estate")
+relig1 <- relig %>% mutate(categories = "Religious")
+
+# Business table for food, shopping, beauty, and home businesses, with updated category column
+business_filtered <- rbind(food1,shopping1,beauty1,home1)
+
+# Business table for all categories, with updated category column
+business_all <- rbind(business_filtered, arts1, active1,edu1, event1,fin1,health1,hotel, pets1,prof1,publicserv1,realestate1,relig1)
+
+# Making a table mapping each month to season
+seasons <- data.frame(season = c("Winter","Winter","Winter","Spring","Spring","Spring","Summer","Summer","Summer","Fall","Fall","Fall"), month = c(12,1,2,3,4,5,6,7,8,9,10,11))
+seasons
+
+# Making table mapping each month number to a month name
+months <- data.frame(month = seq(1,12), name = c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov","Dec"))
+months
+
+# Create fundamental data set for filtered categories, associating each review with its business
+data <- business_filtered %>%
+  left_join(review_clean, by="business_id") %>%
+  select(business_id, city, categories, date, review_stars, longitude, latitude, review_count)
+
+# Create fundamental data set for all categories, associating each review with its business
+
+data_all <- business_all %>%
+  left_join(review_clean, by="business_id") %>%
+  select(business_id, city, categories, date, review_stars)
+
+```
+
+Answering research question 1
+
+```{r, include = FALSE}
+# Creates a table mapping each month to the number of reviews for each category
+
+food_joined <- data %>%
+  filter(categories == "Food") %>% 
+  mutate(month = lubridate::month(date)) %>%
+  group_by(month) %>%
+  summarize(num_reviews = n()) %>% 
+  left_join(months, by="month")
+View(food_joined)
+
+shopping_joined <-data %>%
+  filter(categories == "Shopping") %>%
+  mutate(month = lubridate::month(date)) %>%
+  group_by(month) %>%
+  summarize(num_reviews = n()) %>% 
+  left_join(months, by="month")
+
+beauty_joined <- data %>%
+  filter(categories == "Beauty") %>%
+  mutate(month = lubridate::month(date)) %>%
+  group_by(month) %>%
+  summarize(num_reviews = n()) %>% 
+  left_join(months, by="month")
+
+home_joined <- data %>%
+  filter(categories == "Home") %>%
+  mutate(month = lubridate::month(date)) %>%
+  group_by(month) %>%
+  summarize(num_reviews = n()) %>% 
+  left_join(months, by="month")
+
+```
+
+```{r, include = FALSE}
+
+# Creating individual tables for each category: month, number of reviews, category
+
+food_joined_all <- data_all %>%
+  filter(categories == "Food") %>%
+  mutate(month = lubridate::month(date)) %>%
+  group_by(month) %>%
+  summarize(num_reviews = n()) %>% 
+  left_join(months, by="month") %>%
+  mutate(categories = "Food")
+
+shopping_joined_all <-data_all %>%
+  filter(categories == "Shopping") %>%
+  mutate(month = lubridate::month(date)) %>%
+  group_by(month) %>%
+  summarize(num_reviews = n()) %>% 
+  left_join(months, by="month") %>%
+  mutate(categories = "Shopping")
+
+beauty_joined_all <- data_all %>%
+  filter(categories == "Beauty") %>%
+  mutate(month = lubridate::month(date)) %>%
+  group_by(month) %>%
+  summarize(num_reviews = n()) %>% 
+  left_join(months, by="month") %>%
+  mutate(categories = "Beauty")
+
+home_joined_all <- data_all %>%
+  filter(categories == "Home") %>%
+  mutate(month = lubridate::month(date)) %>%
+  group_by(month) %>%
+  summarize(num_reviews = n()) %>% 
+  left_join(months, by="month") %>%
+  mutate(categories = "Home")
+
+arts_joined_all <- data_all %>%
+  filter(categories == "Arts") %>%
+  mutate(month = lubridate::month(date)) %>%
+  group_by(month) %>%
+  summarize(num_reviews = n()) %>% 
+  left_join(months, by="month") %>%
+  mutate(categories = "Arts")
+
+active_joined_all <- data_all %>%
+  filter(categories == "Active") %>%
+  mutate(month = lubridate::month(date)) %>%
+  group_by(month) %>%
+  summarize(num_reviews = n()) %>% 
+  left_join(months, by="month") %>%
+  mutate(categories = "Active")
+
+edu_joined_all <- data_all %>%
+  filter(categories == "Education") %>%
+  mutate(month = lubridate::month(date)) %>%
+  group_by(month) %>%
+  summarize(num_reviews = n()) %>% 
+  left_join(months, by="month") %>%
+  mutate(categories = "Education")
+
+event_joined_all <- data_all %>%
+  filter(categories == "Events") %>%
+  mutate(month = lubridate::month(date)) %>%
+  group_by(month) %>%
+  summarize(num_reviews = n()) %>% 
+  left_join(months, by="month") %>%
+  mutate(categories = "Events")
+
+fin_joined_all <- data_all %>%
+  filter(categories == "Finance") %>%
+  mutate(month = lubridate::month(date)) %>%
+  group_by(month) %>%
+  summarize(num_reviews = n()) %>% 
+  left_join(months, by="month") %>%
+  mutate(categories = "Finance")
+
+health_joined_all <- data_all %>%
+  filter(categories == "Health") %>%
+  mutate(month = lubridate::month(date)) %>%
+  group_by(month) %>%
+  summarize(num_reviews = n()) %>% 
+  left_join(months, by="month") %>%
+  mutate(categories = "Health")
+
+hotel_joined_all <- data_all %>%
+  filter(categories == "Hotel") %>%
+  mutate(month = lubridate::month(date)) %>%
+  group_by(month) %>%
+  summarize(num_reviews = n()) %>% 
+  left_join(months, by="month") %>%
+  mutate(categories = "Hotel")
+
+pets_joined_all <- data_all %>%
+  filter(categories == "Pets") %>%
+  mutate(month = lubridate::month(date)) %>%
+  group_by(month) %>%
+  summarize(num_reviews = n()) %>% 
+  left_join(months, by="month") %>%
+  mutate(categories = "Pets")
+
+prof_joined_all <- data_all %>%
+  filter(categories == "Professional") %>%
+  mutate(month = lubridate::month(date)) %>%
+  group_by(month) %>%
+  summarize(num_reviews = n()) %>% 
+  left_join(months, by="month") %>%
+  mutate(categories = "Professional")
+
+publicserv_joined_all <- data_all %>%
+  filter(categories == "Public Services") %>%
+  mutate(month = lubridate::month(date)) %>%
+  group_by(month) %>%
+  summarize(num_reviews = n()) %>% 
+  left_join(months, by="month") %>%
+  mutate(categories = "Public Services")
+
+realestate_joined_all <- data_all %>%
+  filter(categories == "Real Estate") %>%
+  mutate(month = lubridate::month(date)) %>%
+  group_by(month) %>%
+  summarize(num_reviews = n()) %>% 
+  left_join(months, by="month") %>%
+  mutate(categories = "Real Estate")
+
+relig_joined_all <- data_all %>%
+  filter(categories == "Religious") %>%
+  mutate(month = lubridate::month(date)) %>%
+  group_by(month) %>%
+  summarize(num_reviews = n()) %>% 
+  left_join(months, by="month") %>%
+  mutate(categories = "Religious")
+
+# Create aggregate table of reviews per business, grouped by category and month
+
+top_categ <- rbind(food_joined_all, shopping_joined_all,beauty_joined_all,home_joined_all,arts_joined_all,active_joined_all, edu_joined_all, event_joined_all, fin_joined_all, health_joined_all, hotel_joined_all, pets_joined_all, prof_joined_all, publicserv_joined_all, realestate_joined_all, relig_joined_all) %>%
+  left_join(categ_count, by = "categories") %>% # create an intermediate table with month, number of reviews, number of businesses, category 
+  mutate(reviews_per_business = num_reviews/count) %>% # create column with our quantifier
+  left_join(seasons, by = "month") %>%
+  group_by(categories, season) %>%
+  summarise(reviews_per_business = mean(reviews_per_business))
+
+top_categ
+
+```
+
+```{r, include=FALSE}
+
+# Function that calculates percent change
+calc_per_change <- function(x) {
+  change_vec <- c(0)
+  for (i in 1:length(x)-1) {
+    change <- (x[i+1]-x[i])/x[i]
+    change_vec <-append(change_vec, change)
+  }
+  return(change_vec)
+}
+
+# Creates a table with added column for percent change for each category
+
+food_joined_all_change <- food_joined_all %>% 
+  mutate(percent_change = calc_per_change(food_joined_all$num_reviews))
+
+shopping_joined_all_change <- shopping_joined_all %>% 
+  mutate(percent_change = calc_per_change(shopping_joined_all$num_reviews))
+
+home_joined_all_change <- home_joined_all %>% 
+  mutate(percent_change = calc_per_change(home_joined_all$num_reviews))
+
+beauty_joined_all_change <- beauty_joined_all %>% 
+  mutate(percent_change = calc_per_change(beauty_joined_all$num_reviews))
+
+# Creates aggregate precent change table for all selected categories
+
+per_change <- rbind(food_joined_all_change, shopping_joined_all_change, beauty_joined_all_change, home_joined_all_change)
+
+per_change
+
+```
+
+Answering research question 2
+```{r, include = FALSE}
+# Creates a table mapping each month to the category's average resulting rating during that month
+
+food_joined_ratings <- data %>%
+  filter(categories == "Food") %>%
+  group_by(date) %>%
+  summarize(ave_rating = mean(review_stars)) %>%
+  mutate(month = lubridate::month(date)) %>%
+  left_join(months, by="month")
+
+
+shopping_joined_ratings <- data %>%
+  filter(categories == "Shopping") %>%
+  group_by(date) %>%
+  summarize(ave_rating = mean(review_stars)) %>%
+  mutate(month = lubridate::month(date)) %>%
+  left_join(months, by="month")
+
+beauty_joined_ratings <- data %>%
+  filter(categories == "Beauty") %>%
+  group_by(date) %>%
+  summarize(ave_rating = mean(review_stars)) %>%
+  mutate(month = lubridate::month(date)) %>%
+  left_join(months, by="month")
+
+home_joined_ratings <- data %>%
+  filter(categories == "Home") %>%
+  group_by(date) %>%
+  summarize(ave_rating = mean(review_stars)) %>%
+  mutate(month = lubridate::month(date)) %>%
+  left_join(months, by="month")
+
+
+```
+
+Answering research question 3 
+```{r, include=FALSE}
+# Create summary table for number of reviews for a given location in each season, limiting data set to certain cities
+geo <- data %>%
+  mutate(latitude = round(latitude, digits = 0), longitude = round(longitude, digits = 0)) %>% # cleaning coordinates 
+  mutate(month = lubridate::month(date)) %>% # transforming month column into glyph-ready data
+  left_join(seasons, by = "month") %>% # add a column associating a review with its season
+  group_by(longitude, latitude, season) %>% 
+  mutate(tot_numrev = sum(review_count)) %>% 
+  select(city,tot_numrev, season, latitude, longitude) %>%
+  unique() %>%
+  filter(city == "New York City"|city == "Las Vegas"|city =="Chicago"|city =="Pittsburgh"|city =="Charlotte"|city =="Phoenix"|city =="San Francisco"|city =="Los Angeles"|city =="Houston"|city =="Boston") # select desired cities
+```
+
+## Analyzing Reviewing Behavior In Relation to Seasonality
+
+**Key Questions**
+
+* What businesses are most popular (are reviewed the most) during each season? Which categories are most affected by seasonal trends?  
+* For a given business/category, how do reviews change with the seasons? 
+* How does reviewing behavior change for a given category across different geographical regions? 
+
+**Data Source**
+
+* Yelp Academic Dataset:
+  + yelp academic dataset business.json
+  + yelp academic dataset review.json
+* Variables of interest: business_id, city, stars, review_count, is_open, categories, date, latitude, longitude
+* Time period: 2004-2015
+
+**Methods**
+
+* from this class: lubridate, data verbs for data wrangling, regex and grepl, join, ggplot (geom_col, geom_violin, geom_line), themes
+* outside of this class: vertically combining data tables (rbind), converting json to csv
+
+
+## Results: 
+
+### Number of Businesses in Each Category 
+
+```{r, echo = FALSE}
+categ_count_bar <- categ_count %>% ggplot(aes(x = categories,y = count)) + geom_col(aes(fill = categories)) + labs(title = "Number of Businesses in Each Category", x = "Categories", y="Number of Business") + theme(axis.text.x = element_text(angle = 90))
+
+categ_count_bar
+```
+
+### Top Categories Per Season
+
+```{r, echo = FALSE}
+top_categ_bar <- top_categ %>% ggplot(aes(x=categories, y = reviews_per_business)) + geom_col(aes(fill=categories)) + facet_wrap(~season) + labs(title = "Top Categories for Each Season", x = "Categories", y="Reviews Per Business") + theme(axis.text.x = element_text(angle = 90))
+
+top_categ_bar
+```
+
+### Number of Reviews Over Time for Each Category
+
+```{r, echo=FALSE}
+food_joined %>% ggplot(aes(x = factor(name, levels = c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov","Dec")), y=num_reviews)) + geom_col(fill = "sky blue") + labs(title = "Food",x = "Month", y= "Number of Reviews") + theme(plot.title = element_text(size = 25, color = "black")) + theme_igray()
+
+shopping_joined %>% ggplot(aes(x = factor(name, levels = c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov","Dec")), y=num_reviews)) + geom_col(fill = "purple") + labs(title = "Shopping",x = "Month", y= "Number of Reviews") + theme(plot.title = element_text(size = 25, color = "black")) + theme_igray()
+
+beauty_joined %>% ggplot(aes(x = factor(name, levels = c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov","Dec")), y=num_reviews)) + geom_col(fill = "pink") + labs(title = "Beauty",x = "Month", y= "Number of Reviews") + theme(plot.title = element_text(size = 25, color = "black")) + theme_igray()
+
+home_joined %>% ggplot(aes(x = factor(name, levels = c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov","Dec")), y=num_reviews)) + geom_col(fill = "dark green") + labs(title = "Home",x = "Month", y= "Number of Reviews") + theme(plot.title = element_text(size = 25, color = "black")) + theme_igray()
+```
+
+### Percent Change Per Month
+
+```{r, echo = FALSE}
+per_change_line <- per_change %>%
+  ggplot(aes(x=factor(name, levels = c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov","Dec")), y=percent_change, col = categories, group=categories)) + geom_line() + geom_point() + labs(title = "Percent Change of Reviews For Each Category", x = "Month", y="Percent Change")
+
+per_change_line
+
+```
+
+## Results: 
+
+
+### Average Rating Over Time for Each Category
+
+```{r, echo = FALSE}
+food_joined_ratings %>% ggplot(aes(x = factor(name, levels = c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov","Dec")), y = ave_rating)) + geom_violin(fill = "sky blue") + scale_y_continuous(breaks = seq(0,5,0.5)) + labs(title = "Food",x = "Month", y= "Average Rating") + theme(plot.title = element_text(size = 20, color = "black"))
+
+shopping_joined_ratings %>% ggplot(aes(x = factor(name, levels = c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov","Dec")), y = ave_rating)) + geom_violin(fill = "purple")+ scale_y_continuous(breaks = seq(0,5,0.5)) + labs(title = "Shopping",x = "Month", y= "Average Rating") + theme(plot.title = element_text(size = 20, color = "black"))
+
+beauty_joined_ratings %>% ggplot(aes(x  = factor(name, levels = c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov","Dec")), y = ave_rating)) + geom_violin(fill = "pink")+ scale_y_continuous(breaks = seq(0,5,0.5)) + labs(title = "Beauty",x = "Month", y= "Average Rating") + theme(plot.title = element_text(size = 20, color = "black"))
+
+home_joined_ratings %>% ggplot(aes(x  = factor(name, levels = c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov","Dec")), y = ave_rating)) + geom_violin(fill = "dark green")+ scale_y_continuous(breaks = seq(0,5,0.5)) + labs(title = "Home",x = "Month", y= "Average Rating") + theme(plot.title = element_text(size = 20, color = "black"))
+
+
+```
+
+### Number of Reviews By City Per Season
+
+```{r, echo = FALSE, fig.width=11, fig.height=8}
+ 
+map <-map_data("state")
+
+          
+p <- ggplot() + geom_polygon( data=map, aes(x=long, y=lat, group = group),colour="white", fill="grey10" )
+p1 <- p + geom_point( data=geo, aes(x=longitude, y=latitude, size = tot_numrev), color="coral1") + scale_size(name="Total Number of Reviews") + facet_wrap(~season) + labs(title = "Number of Reviews By City Per Season", x="Latitude", y="Longitude")
+
+p1
+
+
+```
+
